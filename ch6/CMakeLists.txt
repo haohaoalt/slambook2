@@ -13,6 +13,7 @@ include_directories(${OpenCV_INCLUDE_DIRS})
 # Ceres
 find_package(Ceres REQUIRED)
 include_directories(${CERES_INCLUDE_DIRS})
+message(STATUS "Found " ${CERES_DETECTED_VERSION_STRING})
 
 # g2o
 find_package(G2O REQUIRED)

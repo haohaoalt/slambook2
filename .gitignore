@@ -1,3 +1,4 @@
+/3rdparty/ceres-solver/install/*
 # Prerequisites
 *.d
 

@@ -50,21 +50,15 @@
 #
 # CERES_VERSION: Version of Ceres found.
 #
-# CERES_INCLUDE_DIRS: Include directories for Ceres and the
-#                     dependencies which appear in the Ceres public
-#                     API and are thus required to use Ceres.
-#
 # CERES_LIBRARIES: Libraries for Ceres and all
 #                  dependencies against which Ceres was
 #                  compiled. This will not include any optional
 #                  dependencies that were disabled when Ceres was
 #                  compiled.
 #
-# The following variables are also defined for legacy compatibility
-# only.  Any new code should not use them as they do not conform to
-# the standard CMake FindPackage naming conventions.
-#
-# CERES_INCLUDES = ${CERES_INCLUDE_DIRS}.
+# NOTE: There is no equivalent of CERES_INCLUDE_DIRS as the exported
+#       CMake target already includes the definition of its public
+#       include directories.
 
 # Called if we failed to find Ceres or any of its required dependencies,
 # unsets all public (designed to be used externally) variables and reports
@@ -74,6 +68,7 @@ macro(CERES_REPORT_NOT_FOUND REASON_MSG)
   # explicitly set FALSE to denote not found (not merely undefined).
   set(Ceres_FOUND FALSE)
   set(CERES_FOUND FALSE)
+  unset(CERES_INCLUDE_DIR)
   unset(CERES_INCLUDE_DIRS)
   unset(CERES_LIBRARIES)
 
@@ -84,7 +79,7 @@ macro(CERES_REPORT_NOT_FOUND REASON_MSG)
   # FindPackage() use the camelcase library name, not uppercase.
   if (Ceres_FIND_QUIETLY)
     message(STATUS "Failed to find Ceres - " ${REASON_MSG} ${ARGN})
-  else (Ceres_FIND_REQUIRED)
+  elseif (Ceres_FIND_REQUIRED)
     message(FATAL_ERROR "Failed to find Ceres - " ${REASON_MSG} ${ARGN})
   else()
     # Neither QUIETLY nor REQUIRED, use SEND_ERROR which emits an error
@@ -105,11 +100,11 @@ function(ceres_pretty_print_cmake_list OUTPUT_VAR)
 endfunction()
 
 # The list of (optional) components this version of Ceres was compiled with.
-set(CERES_COMPILED_COMPONENTS "@CERES_COMPILED_COMPONENTS@")
+set(CERES_COMPILED_COMPONENTS "EigenSparse;SparseLinearAlgebraLibrary;LAPACK;SuiteSparse;CXSparse;SchurSpecializations")
 
 # If Ceres was not installed, then by definition it was exported
 # from a build directory.
-set(CERES_WAS_INSTALLED @SETUP_CERES_CONFIG_FOR_INSTALLATION@)
+set(CERES_WAS_INSTALLED TRUE)
 
 # Record the state of the CMake module path when this script was
 # called so that we can ensure that we leave it in the same state on
@@ -132,7 +127,7 @@ if (CERES_WAS_INSTALLED)
   # install directory for this this file.  This allows for the install
   # tree to be relocated, after Ceres was built, outside of CMake.
   get_filename_component(CURRENT_ROOT_INSTALL_DIR
-    ${CERES_CURRENT_CONFIG_DIR}/@INSTALL_ROOT_REL_CONFIG_INSTALL_DIR@
+    ${CERES_CURRENT_CONFIG_DIR}/../../../
     ABSOLUTE)
   if (NOT EXISTS ${CURRENT_ROOT_INSTALL_DIR})
     ceres_report_not_found(
@@ -143,23 +138,11 @@ if (CERES_WAS_INSTALLED)
       "outside of CMake after Ceres was built.")
   endif (NOT EXISTS ${CURRENT_ROOT_INSTALL_DIR})
 
-  # Set the include directories for Ceres (itself).
-  set(CERES_INCLUDE_DIR "${CURRENT_ROOT_INSTALL_DIR}/include")
-  if (NOT EXISTS ${CERES_INCLUDE_DIR}/ceres/ceres.h)
-    ceres_report_not_found(
-      "Ceres install root: ${CURRENT_ROOT_INSTALL_DIR}, "
-      "determined from relative path from CeresConfig.cmake install location: "
-      "${CERES_CURRENT_CONFIG_DIR}, does not contain Ceres headers. "
-      "Either the install directory was deleted, or the install tree was only "
-      "partially relocated outside of CMake after Ceres was built.")
-  endif (NOT EXISTS ${CERES_INCLUDE_DIR}/ceres/ceres.h)
-  list(APPEND CERES_INCLUDE_DIRS ${CERES_INCLUDE_DIR})
-
 else(CERES_WAS_INSTALLED)
   # Ceres was exported from the build tree.
   set(CERES_EXPORTED_BUILD_DIR ${CERES_CURRENT_CONFIG_DIR})
   get_filename_component(CERES_EXPORTED_SOURCE_DIR
-    ${CERES_EXPORTED_BUILD_DIR}/@INSTALL_ROOT_REL_CONFIG_INSTALL_DIR@
+    ${CERES_EXPORTED_BUILD_DIR}/../../../
     ABSOLUTE)
   if (NOT EXISTS ${CERES_EXPORTED_SOURCE_DIR})
     ceres_report_not_found(
@@ -173,38 +156,25 @@ else(CERES_WAS_INSTALLED)
   # with Ceres to find Ceres' dependencies, even if the user has equivalently
   # named FindPackage() scripts in their project.
   set(CMAKE_MODULE_PATH ${CERES_EXPORTED_SOURCE_DIR}/cmake)
-
-  # Set the include directories for Ceres (itself).
-  set(CERES_INCLUDE_DIR "${CERES_EXPORTED_SOURCE_DIR}/include")
-  if (NOT EXISTS ${CERES_INCLUDE_DIR}/ceres/ceres.h)
-    ceres_report_not_found(
-      "Ceres exported source directory: ${CERES_EXPORTED_SOURCE_DIR}, "
-      "determined from relative path from CeresConfig.cmake exported build "
-      "directory: ${CERES_EXPORTED_BUILD_DIR}, does not contain Ceres headers.")
-  endif (NOT EXISTS ${CERES_INCLUDE_DIR}/ceres/ceres.h)
-  list(APPEND CERES_INCLUDE_DIRS ${CERES_INCLUDE_DIR})
-
-  # Append the path to the configured config.h in the exported build directory
-  # to the Ceres include directories.
-  set(CERES_CONFIG_FILE
-    ${CERES_EXPORTED_BUILD_DIR}/config/ceres/internal/config.h)
-  if (NOT EXISTS ${CERES_CONFIG_FILE})
-    ceres_report_not_found(
-      "Ceres exported build directory: ${CERES_EXPORTED_BUILD_DIR}, "
-      "does not contain required configured Ceres config.h, it is not here: "
-      "${CERES_CONFIG_FILE}.")
-  endif (NOT EXISTS ${CERES_CONFIG_FILE})
-  list(APPEND CERES_INCLUDE_DIRS ${CERES_EXPORTED_BUILD_DIR}/config)
 endif(CERES_WAS_INSTALLED)
 
 # Set the version.
-set(CERES_VERSION @CERES_VERSION@ )
+set(CERES_VERSION 2.0.0 )
+
+include(CMakeFindDependencyMacro)
+find_dependency(Threads)
 
 # Eigen.
 # Flag set during configuration and build of Ceres.
-set(CERES_EIGEN_VERSION @EIGEN_VERSION@)
+set(CERES_EIGEN_VERSION 3.3.4)
+set(EIGEN_WAS_BUILT_WITH_CMAKE TRUE)
 # Append the locations of Eigen when Ceres was built to the search path hints.
-list(APPEND EIGEN_INCLUDE_DIR_HINTS @EIGEN_INCLUDE_DIR@)
+if (EIGEN_WAS_BUILT_WITH_CMAKE)
+  set(Eigen3_DIR /usr/lib/cmake/eigen3)
+  set(EIGEN_PREFER_EXPORTED_EIGEN_CMAKE_CONFIGURATION TRUE)
+else()
+  list(APPEND EIGEN_INCLUDE_DIR_HINTS /usr/include/eigen3)
+endif()
 # Search quietly to control the timing of the error message if not found. The
 # search should be for an exact match, but for usability reasons do a soft
 # match and reject with an explanation below.
@@ -228,41 +198,67 @@ else (EIGEN_FOUND)
     "dependency: Eigen version ${CERES_EIGEN_VERSION}, please set "
     "EIGEN_INCLUDE_DIR.")
 endif (EIGEN_FOUND)
-list(APPEND CERES_INCLUDE_DIRS ${EIGEN_INCLUDE_DIRS})
 
 # Glog.
 # Flag set during configuration and build of Ceres.
-set(CERES_USES_MINIGLOG @MINIGLOG@)
+set(CERES_USES_MINIGLOG OFF)
+set(CERES_USES_GFLAGS ON)
 if (CERES_USES_MINIGLOG)
-  set(MINIGLOG_INCLUDE_DIR ${CERES_INCLUDE_DIR}/ceres/internal/miniglog)
-  if (NOT EXISTS ${MINIGLOG_INCLUDE_DIR})
-    ceres_report_not_found(
-      "Ceres include directory: "
-      "${CERES_INCLUDE_DIR} does not include miniglog, but Ceres was "
-      "compiled with MINIGLOG enabled (in place of Glog).")
-  endif (NOT EXISTS ${MINIGLOG_INCLUDE_DIR})
-  list(APPEND CERES_INCLUDE_DIRS ${MINIGLOG_INCLUDE_DIR})
   # Output message at standard log level (not the lower STATUS) so that
   # the message is output in GUI during configuration to warn user.
   message("-- Found Ceres compiled with miniglog substitute "
     "for glog, beware this will likely cause problems if glog is later linked.")
-else (CERES_USES_MINIGLOG)
-  # Append the locations of glog when Ceres was built to the search path hints.
-  list(APPEND GLOG_INCLUDE_DIR_HINTS @GLOG_INCLUDE_DIR@)
-  get_filename_component(CERES_BUILD_GLOG_LIBRARY_DIR @GLOG_LIBRARY@ PATH)
-  list(APPEND GLOG_LIBRARY_DIR_HINTS ${CERES_BUILD_GLOG_LIBRARY_DIR})
+else(CERES_USES_MINIGLOG)
+  # As imported CMake targets are not re-exported when a dependent target is
+  # exported, we must invoke find_package(XXX) here to reload the definition
+  # of their targets.  Without this, the dependency target names (e.g.
+  # 'gflags-shared') which will be present in the ceres target would not be
+  # defined, and so CMake will assume that they refer to a library name and
+  # fail to link correctly.
 
+  # Append the locations of glog when Ceres was built to the search path hints.
+  set(GLOG_WAS_BUILT_WITH_CMAKE 1)
+  if (GLOG_WAS_BUILT_WITH_CMAKE)
+    set(glog_DIR /usr/local/lib/cmake/glog)
+    set(GLOG_PREFER_EXPORTED_GLOG_CMAKE_CONFIGURATION TRUE)
+  else()
+    list(APPEND GLOG_INCLUDE_DIR_HINTS )
+    get_filename_component(CERES_BUILD_GLOG_LIBRARY_DIR glog::glog PATH)
+    list(APPEND GLOG_LIBRARY_DIR_HINTS ${CERES_BUILD_GLOG_LIBRARY_DIR})
+  endif()
   # Search quietly s/t we control the timing of the error message if not found.
   find_package(Glog QUIET)
   if (GLOG_FOUND)
-    message(STATUS "Found required Ceres dependency: "
-      "Glog in ${GLOG_INCLUDE_DIRS}")
-  else (GLOG_FOUND)
+    message(STATUS "Found required Ceres dependency: glog")
+  else()
     ceres_report_not_found("Missing required Ceres "
-      "dependency: Glog, please set GLOG_INCLUDE_DIR.")
-  endif (GLOG_FOUND)
-  list(APPEND CERES_INCLUDE_DIRS ${GLOG_INCLUDE_DIRS})
-endif (CERES_USES_MINIGLOG)
+      "dependency: glog. Searched using GLOG_INCLUDE_DIR_HINTS: "
+      "${GLOG_INCLUDE_DIR_HINTS} and glog_DIR: ${glog_DIR}.")
+  endif()
+
+  # gflags is only a public dependency of Ceres via glog, thus is not required
+  # if Ceres was built with MINIGLOG.
+  if (CERES_USES_GFLAGS)
+    set(GFLAGS_WAS_BUILT_WITH_CMAKE 1)
+    if (GFLAGS_WAS_BUILT_WITH_CMAKE)
+      set(gflags_DIR /usr/lib/x86_64-linux-gnu/cmake/gflags)
+      set(GFLAGS_PREFER_EXPORTED_GFLAGS_CMAKE_CONFIGURATION TRUE)
+    else()
+      list(APPEND GFLAGS_INCLUDE_DIR_HINTS /usr/include)
+      get_filename_component(CERES_BUILD_GFLAGS_LIBRARY_DIR gflags_shared PATH)
+      list(APPEND GFLAGS_LIBRARY_DIR_HINTS ${CERES_BUILD_GFLAGS_LIBRARY_DIR})
+    endif()
+    # Search quietly s/t we control the timing of the error message if not found.
+    find_package(Gflags QUIET)
+    if (GFLAGS_FOUND)
+      message(STATUS "Found required Ceres dependency: gflags")
+    else()
+      ceres_report_not_found("Missing required Ceres "
+        "dependency: gflags. Searched using GFLAGS_INCLUDE_DIR_HINTS: "
+        "${GFLAGS_INCLUDE_DIR_HINTS} and gflags_DIR: ${gflags_DIR}.")
+    endif()
+  endif()
+endif(CERES_USES_MINIGLOG)
 
 # Import exported Ceres targets, if they have not already been imported.
 if (NOT TARGET ceres AND NOT Ceres_BINARY_DIR)
@@ -270,31 +266,6 @@ if (NOT TARGET ceres AND NOT Ceres_BINARY_DIR)
 endif (NOT TARGET ceres AND NOT Ceres_BINARY_DIR)
 # Set the expected XX_LIBRARIES variable for FindPackage().
 set(CERES_LIBRARIES ceres)
-
-# Make user aware of any compile flags that will be added to their targets
-# which use Ceres (i.e. flags exported in the Ceres target).  Only CMake
-# versions >= 2.8.12 support target_compile_options().
-if (TARGET ${CERES_LIBRARIES} AND
-    NOT CMAKE_VERSION VERSION_LESS "2.8.12")
-  get_target_property(CERES_INTERFACE_COMPILE_OPTIONS
-    ${CERES_LIBRARIES} INTERFACE_COMPILE_OPTIONS)
-
-  if (CERES_WAS_INSTALLED)
-    set(CERES_LOCATION "${CURRENT_ROOT_INSTALL_DIR}")
-  else()
-    set(CERES_LOCATION "${CERES_EXPORTED_BUILD_DIR}")
-  endif()
-
-  # Check for -std=c++11 flags.
-  if (CERES_INTERFACE_COMPILE_OPTIONS MATCHES ".*std=c\\+\\+11.*")
-    message(STATUS "Ceres version ${CERES_VERSION} detected here: "
-      "${CERES_LOCATION} was built with C++11. Ceres target will add "
-      "C++11 flags to compile options for targets using it.")
-  endif()
-endif()
-
-# Set legacy include directories variable for backwards compatibility.
-set(CERES_INCLUDES ${CERES_INCLUDE_DIRS})
 
 # Reset CMake module path to its state when this script was called.
 set(CMAKE_MODULE_PATH ${CALLERS_CMAKE_MODULE_PATH})
